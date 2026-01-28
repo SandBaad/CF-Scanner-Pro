@@ -78,7 +78,7 @@ cd CF-Scanner-Pro
 <p>۲. <b>نصب پیش‌نیازها:</b></p>
 
 <pre dir="ltr">
-  pip install -r requirements.txt
+pip install -r requirements.txt
 </pre>
 
 <p>۳. <b>اجرا:</b></p>
