@@ -29,18 +29,18 @@
 ### Installation
 
 1. **Clone the repository:**
-
-    git clone https://github.com/SandBaad/CF-Scanner-Pro.git
-    cd CF-Scanner-Pro
-
+<pre dir="ltr">
+git clone https://github.com/SandBaad/CF-Scanner-Pro.git
+cd CF-Scanner-Pro
+</pre>pre>
 2. **Install requirements:**
-
-    pip install -r requirements.txt
-
+<pre dir="ltr">
+pip install -r requirements.txt
+</pre>pre>
 3. **Run the tool:**
-
-    python main.py
-
+<pre dir="ltr">
+python main.py
+</pre>pre>
 ### Usage
 Run the script and enter your SNI (Target Domain) when prompted.
 - **Secure Mode:** Scans a random sample of IPs (slower, less likely to be blocked).
@@ -49,10 +49,11 @@ Run the script and enter your SNI (Target Domain) when prompted.
 ---
 
 <a name="persian"></a>
+<div dir="ltr">
+
+<h2>🇮🇷 فارسی</h2>
+</div>
 <div dir="rtl">
-
-<h2>🇮🇷 مستندات فارسی</h2>
-
 <p>
 ابزار <b>CF-Scanner Pro</b> برای اسکن رنج‌های آی‌پی کلودفلر طراحی شده است. این اسکریپت با انجام <code>TLS Handshake</code> روی دامنه (SNI) مورد نظر شما، سالم بودن آی‌پی را بررسی کرده و پینگ آن را نمایش می‌دهد.
 </p>
@@ -77,7 +78,7 @@ cd CF-Scanner-Pro
 <p>۲. <b>نصب پیش‌نیازها:</b></p>
 
 <pre dir="ltr">
-pip install -r requirements.txt
+  pip install -r requirements.txt
 </pre>
 
 <p>۳. <b>اجرا:</b></p>
