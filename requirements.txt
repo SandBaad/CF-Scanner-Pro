@@ -1,5 +1,2 @@
-# Terminal UI and Formatting
 rich>=13.0.0
-
-# Interactive Command Line Interface
 questionary>=2.0.0
