@@ -1,66 +1,75 @@
-# main.py
-
+#!/usr/bin/env python3
+"""CF-Scanner Pro - find working Cloudflare edge IPs for your SNI."""
+import asyncio
 import sys
-import threading
-from concurrent.futures import ThreadPoolExecutor
-from rich.live import Live
-from rich import print as rprint
 
-# Import our custom modules
-from modules.config import ConfigManager
-from modules.engine import ScannerEngine, IpManager
-from modules.ui import Dashboard
+if sys.version_info < (3, 8):
+    sys.exit("CF-Scanner Pro requires Python 3.8 or newer.")
+
+from rich.console import Console
+from rich.live import Live
+
+from modules import ranges
+from modules.config import get_config
+from modules.engine import Prober
+from modules.output import ResultSink
+from modules.scanner import Scanner, ScanState
+from modules.ui import Dashboard, render_summary
+
+
+def fit_concurrency(wanted):
+    """Raises the open-file limit where possible (Linux / macOS / Termux)."""
+    try:
+        import resource
+    except ImportError:  # Windows: no per-process socket limit to worry about
+        return wanted
+    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    if soft == resource.RLIM_INFINITY:
+        return wanted
+    need = wanted + 64
+    if soft < need:
+        new = need if hard == resource.RLIM_INFINITY else min(need, hard)
+        try:
+            resource.setrlimit(resource.RLIMIT_NOFILE, (new, hard))
+            soft = new
+        except (ValueError, OSError):
+            pass
+    return max(1, min(wanted, soft - 64))
+
 
 def main():
-    # 1. Setup
-    config = ConfigManager.load_config()
-    subnets = IpManager.load_subnets(config['subnets_file'])
-    targets = IpManager.generate_targets(subnets, config['randomize'])
-    
-    if not targets:
-        rprint("[bold red]No targets found. Check subnets.txt[/bold red]")
+    console = Console()
+    cfg = get_config(console)
+
+    nets, source = ranges.load_ranges(cfg["subnets_file"])
+    blocks = ranges.to_blocks(nets)
+    if not blocks:
+        console.print("[bold red]No valid IPv4 ranges found.[/]")
         sys.exit(1)
 
-    rprint(f"\n[yellow]Starting scan on {len(targets)} IPs...[/yellow]")
-    
-    # 2. Initialize
-    engine = ScannerEngine(config)
-    dashboard = Dashboard()
-    stop_event = threading.Event()
-    stats = {"scanned": 0, "found": 0}
-    results = []
+    concurrency = fit_concurrency(cfg["concurrency"])
+    if concurrency < cfg["concurrency"]:
+        console.print(f"[yellow]Open-file limit is low - using {concurrency} connections.[/]")
+    cfg = dict(cfg, concurrency=concurrency)
 
-    # 3. Execution Loop
+    state = ScanState(cfg["colos"])
+    state.log(f"Loaded {len(nets)} ranges ({len(blocks):,} /24 blocks) from {source}")
+    sink = ResultSink()
+    state.sink = sink
+    prober = Prober(cfg["sni"], cfg["port"], cfg["timeout"], cfg["verify_cert"], cfg["http_check"])
+    scanner = Scanner(cfg, blocks, prober, state)
+
     try:
-        with Live(refresh_per_second=4) as live:
-            with ThreadPoolExecutor(max_workers=config['workers']) as executor:
-                futures = {executor.submit(engine.check_ip, ip, stop_event): ip for ip in targets}
-                
-                for future in futures:
-                    if stop_event.is_set(): break
-                    try:
-                        result = future.result()
-                        stats["scanned"] += 1
-                        
-                        if result:
-                            stats["found"] += 1
-                            results.append(result)
-                            dashboard.add_row(result)
-                        
-                        live.update(dashboard.get_layout(stats))
-                    except KeyboardInterrupt:
-                        raise
-                        
-    except KeyboardInterrupt:
-        stop_event.set()
-        rprint("\n[red]Scan Aborted![/red]")
+        with Live(Dashboard(state, cfg), console=console, screen=True, auto_refresh=False) as live:
+            asyncio.run(scanner.run(live))
+    except (KeyboardInterrupt, asyncio.CancelledError):
+        state.stopping = True
+    finally:
+        state.finish()
+        saved = sink.finalize(state.ranked())
 
-    # 4. Save Results
-    if results:
-        results.sort(key=lambda x: x['latency'])
-        with open("working_ips.txt", "w") as f:
-            for res in results: f.write(f"{res['ip']}\n")
-        rprint(f"\n[green]✓ Saved {len(results)} IPs to working_ips.txt[/green]")
+    console.print(render_summary(state, saved, sink, compact=console.width < 96))
+
 
 if __name__ == "__main__":
     main()
