@@ -21,26 +21,29 @@ SPEED_GIVE_UP = 3  # consecutive failures with no success -> speed host unreacha
 
 
 def score(h: Hit) -> float:
-    """Lower is better: latency + jitter, heavy loss penalty, bonus for real throughput."""
-    s = h.latency + (h.jitter or 0)
+    """Lower is better (milliseconds-like): latency + jitter + loss + slow-download cost.
+
+    The download term is 300 / (Mbps + 1): ~120 at 1.5 Mbps, ~30 at 9 Mbps, ~7 at 40 Mbps,
+    so a throttled IP can't win on a fast handshake alone.
+    """
+    s = h.latency + 1.5 * (h.jitter or 0)
     if h.loss:
         s += 1000 * h.loss
     if h.speed is not None:
-        s -= min(h.speed, 100) * 3
-    elif h.speed_err:
-        s += 200
+        s += 300 / (h.speed + 1)
     return s
 
 
 def rank_key(h: Hit):
-    """Stable verified IPs first, then unverified, then IPs that failed every re-test."""
+    """Verified & alive first; inside that: download-tested OK, then untested, then failed download."""
     if h.loss is None:
         group = 1
     elif h.loss >= 1:
         group = 2
     else:
         group = 0
-    return (group, score(h))
+    tier = 0 if h.speed is not None else 2 if h.speed_err and h.speed_err != "skipped" else 1
+    return (group, tier, score(h))
 
 
 class ScanState:

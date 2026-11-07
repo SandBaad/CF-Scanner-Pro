@@ -20,6 +20,10 @@ HINTS = {
 }
 
 
+def rate_str(r):
+    return f"{r:,.0f}/s" if r >= 10 else f"{r:.1f}/s"
+
+
 def hms(seconds):
     if seconds is None:
         return "--:--"
@@ -114,27 +118,27 @@ def hjoin(left, right, lw, rw, gap=1):
 def bar_line(th, frac, width, style="accent"):
     frac = min(max(frac, 0.0), 1.0)
     filled = int(round(frac * width))
-    return Line((th.bar * filled, "good" if frac >= 1 else style), (th.bar * (width - filled), "muted"))
+    return Line((th.bar * filled, "good" if frac >= 1 else style), (th.bar_empty * (width - filled), "muted"))
 
 
 # ---------------------------------------------------------------- result table
 
-def lat_cell(ms):
+def lat_cell(th, ms):
     if ms is None:
-        return ("…", "muted")
+        return (th.pending, "muted")
     return (f"{ms}", "goodb" if ms < 150 else "good" if ms < 250 else "warn" if ms < 450 else "bad")
 
 
-def loss_cell(h):
+def loss_cell(th, h):
     if h.loss is None:
-        return ("…", "muted")
+        return (th.pending, "muted")
     pct = round(h.loss * 100)
     return (f"{pct}%", "good" if pct == 0 else "warn" if pct < 34 else "bad")
 
 
-def jitter_cell(h):
+def jitter_cell(th, h):
     if h.jitter is None:
-        return ("…", "muted")
+        return (th.pending, "muted")
     return (f"{h.jitter}", "good" if h.jitter < 20 else "warn" if h.jitter < 60 else "bad")
 
 
@@ -143,7 +147,7 @@ def speed_cell(th, h):
         return (f"{h.speed:.1f}", "goodb" if h.speed >= 20 else "good" if h.speed >= 8 else "warn" if h.speed >= 2 else "bad")
     if h.speed_err and h.speed_err != "skipped":
         return (th.cross, "bad")
-    return ("…", "muted") if not h.verified else (th.dash, "muted")
+    return (th.pending, "muted") if not h.verified else (th.dash, "muted")
 
 
 COLUMNS = {
@@ -167,10 +171,10 @@ def hit_cells(th, i, h, cols):
     cell = {
         "rank": lambda: (str(i), "dim"),
         "ip": lambda: (h.ip, "ip"),
-        "ping": lambda: lat_cell(h.ping if h.ping is not None else h.tcp),
-        "tls": lambda: lat_cell(h.latency),
-        "jitter": lambda: jitter_cell(h),
-        "loss": lambda: loss_cell(h),
+        "ping": lambda: lat_cell(th, h.ping if h.ping is not None else h.tcp),
+        "tls": lambda: lat_cell(th, h.latency),
+        "jitter": lambda: jitter_cell(th, h),
+        "loss": lambda: loss_cell(th, h),
         "speed": lambda: speed_cell(th, h),
         "colo": lambda: (h.colo, "colo"),
         "city": lambda: (city(h.colo), "dim"),
@@ -277,10 +281,10 @@ class Dashboard:
                       f"{c['timeout']:g}s {th.dot} port {c['port']}", "dim")
         pct = s.phase_done / s.phase_total if s.phase_total else (1.0 if s.done else 0.0)
         if compact:
-            info = f" {pct:4.0%}  {s.rate:,.0f}/s  ETA {hms(s.eta())}"
+            info = f" {pct:4.0%}  {rate_str(s.rate)}  ETA {hms(s.eta())}"
         else:
             info = (f" {pct:4.0%}  {s.phase_done:,}/{s.phase_total:,}  {th.dot}  "
-                    f"{s.rate:,.0f}/s  {th.dot}  ETA {hms(s.eta())}")
+                    f"{rate_str(s.rate)}  {th.dot}  ETA {hms(s.eta())}")
         bar = bar_line(th, pct, max(8, inner - len(info)))
         bar.add(info, "accent2")
         return box(th, "", [title, self._phase_line(), bar], width)
@@ -292,7 +296,7 @@ class Dashboard:
         for key, label, color in FAILS:
             n = s.fails.get(key, 0)
             filled = round(barw * n / total)
-            ln = Line((f"{label:<5}", "dim"), (th.bar * filled, color), (th.bar * (barw - filled), "muted"))
+            ln = Line((f"{label:<5}", "dim"), (th.bar * filled, color), (th.bar_empty * (barw - filled), "muted"))
             val = f"{n:,}"
             ln.add(" " * max(1, inner - 5 - barw - len(val))).add(val, "text")
             lines.append(ln)
@@ -308,7 +312,7 @@ class Dashboard:
             lines.append(kv("Other colos", f"{s.filtered:,}", inner, "dim"))
         if s.phases and s.phases[0] != "Check":
             lines.append(kv("Live /24", f"{s.live_blocks:,}", inner))
-        lines += [kv("Rate", f"{s.rate:,.0f}/s", inner, "accent2"), kv("Elapsed", hms(s.elapsed()), inner, "text")]
+        lines += [kv("Rate", rate_str(s.rate), inner, "accent2"), kv("Elapsed", hms(s.elapsed()), inner, "text")]
         if s.speed_tested:
             lines.append(kv("Speed OK", f"{s.speed_ok}/{s.speed_tested}", inner, "good" if s.speed_ok else "warn"))
         lines += [Line(), Line(("Failures", "bold"))] + self._fail_lines(inner, inner - 12)
@@ -331,7 +335,7 @@ class Dashboard:
         if hits:
             lines = hit_table(th, hits, inner)
         else:
-            msg = "Searching for working IPs" + th.ell if not s.done else "No working IPs found"
+            msg = "Searching for working IPs..." if not s.done else "No working IPs found"
             lines = [Line()] * max(0, (height - 3) // 2) + [center(msg, inner, "dim")]
         return box(th, "Best IPs", lines, width, height, border="border", right=f"{s.found:,} working")
 
@@ -346,9 +350,9 @@ class Dashboard:
     def _footer(self, width):
         th, s = self.th, self.state
         if s.done:
-            ln = Line((" Finished ", "key"), ("  writing results" + th.ell, "dim"))
+            ln = Line((" Finished ", "key"), ("  writing results...", "dim"))
         elif s.stopping:
-            ln = Line((" q ", "keyw"), ("  stopping" + th.ell + " press again to quit now", "warn"))
+            ln = Line((" q ", "keyw"), ("  stopping... press again to quit now", "warn"))
         else:
             ln = Line((" q ", "key"), (" stop & save   ", "dim"), (" n ", "key"), (" next phase   ", "dim"))
             if self.live_path:
@@ -403,7 +407,7 @@ class PlainUI:
         self._last = now
         pct = s.phase_done / s.phase_total if s.phase_total else 0
         self.out.write(f"  [{s.phase}] {pct:4.0%}  {s.phase_done:,}/{s.phase_total:,}  "
-                       f"{s.rate:,.0f}/s  working {s.found:,}  ETA {hms(s.eta())}\n")
+                       f"{rate_str(s.rate)}  working {s.found:,}  ETA {hms(s.eta())}\n")
         self.out.flush()
 
 
@@ -432,7 +436,7 @@ def render_summary(th, state, hits, width, saved=0, sink=None, speed_label="", t
     inner = width - 4
     s = state
     done = s.phase == "Done"
-    lines = [Line((f"{th.done} Scan complete" if done else "■ Scan stopped" if th.unicode else "Scan stopped",
+    lines = [Line(("Scan complete" if done else "Scan stopped",
                    "goodb" if done else "warn"),
                   (f"   {s.tested:,} tested {th.dot} {s.found:,} working {th.dot} {hms(s.elapsed())}", "dim"))]
     if title_note:

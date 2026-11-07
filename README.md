@@ -1,6 +1,6 @@
 <div align="center">
 
-# ⚡ CF-Scanner Pro
+# CF-Scanner Pro
 
 **Find clean, fast Cloudflare edge IPs for your own domain (SNI) — straight from your terminal.**
 
@@ -13,20 +13,8 @@
 
 </div>
 
-```
-╭────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ CF-Scanner Pro v3.0.0   sub.example.com   Smart · 200 conns · 2.5s · port 443                  │
-│ ✓ Discovery  ·  ✓ Expansion  ·  ● Verify  ·  ○ Speed                                           │
-│ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  60%  120/200  ·  287/s  ·  ETA 00:01 │
-╰────────────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ Stats ────────────────────────╮ ╭─ Best IPs ─────────────────────────────────────── 214 working ─╮
-│ Tested                  11,904 │ │   #  IP               Ping   TLS  Jit  Loss   Mbps  Colo  City  │
-│ Working                    214 │ │ ─────────────────────────────────────────────────────────────── │
-│ Live /24                   812 │ │   1  104.18.12.19       61   125    4    0%   48.5  FRA   Frank… │
-│ Rate                     287/s │ │   2  172.67.0.7         64   131    6    0%   41.0  AMS   Amste… │
-╰────────────────────────────────╯ ╰─────────────────────────────────────────────────────────────────╯
- q  stop & save    n  next phase   live → working_ips.txt
-```
+<p align="center"><img src="docs/screenshot.png" alt="CF-Scanner Pro dashboard" width="900"></p>
+<p align="center"><sub>Example screen</sub></p>
 
 ---
 
@@ -36,7 +24,7 @@
 ### Why v3
 - **Zero dependencies.** No `pip install` — nothing to break on Termux or on a filtered network.
 - **Results you can trust.** An IP only counts if it passes **TCP → TLS with your SNI (certificate verified) → `/cdn-cgi/trace`**, and the trace must echo *your* host. Hijacked or transparent-proxied answers are rejected.
-- **Real quality numbers.** The best IPs are re-tested several times for **median latency, jitter and packet loss**, then get a **real download test** — so throttled IPs that "ping fine" drop to the bottom.
+- **Real quality numbers.** The best IPs are re-tested several times for **median latency, jitter and packet loss**, then get a **real download test**. Ranking weighs all of it, so a throttled IP with a fast handshake can't come out on top.
 - **Smart search.** Samples every /24 of Cloudflare, then digs only into the fastest blocks.
 - **Command-based** with a live full-screen dashboard (auto-adapts to phone screens), plus `--plain` and `--json` for scripts.
 - **Safe output.** IPs are written while scanning; `q` or `Ctrl+C` stops cleanly and saves.
@@ -103,7 +91,7 @@ Run `cfscan scan -h` for everything.
 ### چرا نسخه ۳
 - **بدون هیچ پیش‌نیازی:** دیگر `pip install` لازم نیست؛ روی Termux و اینترنت فیلترشده هم بدون دردسر اجرا می‌شود.
 - **نتایج واقعی:** یک آی‌پی فقط وقتی سالم حساب می‌شود که اتصال TCP، سپس TLS با SNI شما (با بررسی گواهی) و در آخر درخواست `/cdn-cgi/trace` همه موفق باشند و پاسخ هم دقیقاً برای دامنه شما باشد. پاسخ‌های جعلی یا دست‌کاری‌شده رد می‌شوند.
-- **کیفیت واقعی اتصال:** بهترین آی‌پی‌ها چند بار دوباره تست می‌شوند (میانه پینگ، جیتر و درصد loss) و بعد **تست دانلود واقعی** می‌گیرند؛ آی‌پی‌هایی که پینگ خوبی دارند ولی محدود (throttle) شده‌اند به انتهای لیست می‌روند.
+- **کیفیت واقعی اتصال:** بهترین آی‌پی‌ها چند بار دوباره تست می‌شوند (میانه پینگ، جیتر و درصد loss) و بعد **تست دانلود واقعی** می‌گیرند. رتبه‌بندی همه این‌ها را با هم در نظر می‌گیرد، پس آی‌پی‌ای که فقط هندشیک سریعی دارد ولی سرعت دانلودش محدود شده بالای لیست نمی‌آید.
 - **جستجوی هوشمند:** از همه رنج‌های /24 کلودفلر نمونه می‌گیرد و فقط در سریع‌ترین رنج‌ها عمیق‌تر می‌گردد.
 - **دستوری (Command-based)** با داشبورد زنده تمام‌صفحه که خودش را با صفحه گوشی هم تطبیق می‌دهد؛ برای اسکریپت هم `--plain` و `--json` دارد.
 - **ذخیره امن:** نتایج حین اسکن ذخیره می‌شوند و با `q` یا `Ctrl+C` اسکن تمیز متوقف و ذخیره می‌شود.

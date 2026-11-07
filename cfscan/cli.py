@@ -222,7 +222,7 @@ def cmd_ranges(args):
     th = theme_for(sys.stdout, args)
     path = args.file or config.load_saved().get("ranges") or config.DEFAULTS["ranges"]
     if args.action == "update":
-        print(th.paint("Downloading Cloudflare IP ranges" + th.ell, "dim"))
+        print(th.paint("Downloading Cloudflare IP ranges...", "dim"))
         try:
             n = ranges.update_ranges(path)
         except Exception as e:

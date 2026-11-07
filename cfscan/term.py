@@ -38,7 +38,7 @@ def wants_color(stream, forced_off=False):
 
 def can_unicode(stream):
     try:
-        "╭─│━✓●…".encode(getattr(stream, "encoding", None) or "ascii")
+        "┌─│█░·".encode(getattr(stream, "encoding", None) or "ascii")
         return True
     except (UnicodeEncodeError, LookupError):
         return False
@@ -58,15 +58,18 @@ class Theme:
     def __init__(self, color=True, unicode=True):
         self.color = color
         self.unicode = unicode
+        # Only glyphs that are exactly one cell wide in every common monospace font
+        # (box drawing, block elements, Latin-1). No emoji, arrows, ticks or "…".
         if unicode:
-            self.tl, self.tr, self.bl, self.br, self.h, self.v = "╭", "╮", "╰", "╯", "─", "│"
-            self.bar, self.ell, self.done, self.cur, self.todo = "━", "…", "✓", "●", "○"
-            self.dot, self.arrow, self.cross, self.dash = "·", "→", "×", "—"
+            self.tl, self.tr, self.bl, self.br, self.h, self.v = "┌", "┐", "└", "┘", "─", "│"
+            self.bar, self.bar_empty = "█", "░"
         else:
             self.tl = self.tr = self.bl = self.br = "+"
             self.h, self.v = "-", "|"
-            self.bar, self.ell, self.done, self.cur, self.todo = "=", "~", "+", ">", "-"
-            self.dot, self.arrow, self.cross, self.dash = "|", "->", "x", "-"
+            self.bar, self.bar_empty = "#", "."
+        self.ell, self.done, self.cur, self.todo = "~", "+", ">", "-"
+        self.dot = "\u00b7" if unicode else "|"
+        self.arrow, self.cross, self.dash, self.pending = "->", "x", "-", "\u00b7" if unicode else "."
 
     def paint(self, text, style=None):
         if not style or not self.color or not text:

@@ -301,3 +301,28 @@ def test_cli_show(tmp_path):
 def test_cli_legacy_flags(tmp_path):
     r = cli("--sni", "bad", cwd=str(tmp_path))
     assert r.returncode == 2 and "not a valid domain" in r.stderr
+
+
+def test_only_single_width_glyphs():
+    """Every character the UI draws must be one cell wide in any monospace font."""
+    import unicodedata
+    allowed = lambda ch: ord(ch) < 0x100 or 0x2500 <= ord(ch) <= 0x259F  # noqa: E731
+    st = _state_with_hits()
+    for unicode in (True, False):
+        th = Theme(color=False, unicode=unicode)
+        c = dict(sni="sub.example.com", mode="smart", concurrency=200, timeout=2.5, port=443)
+        frames = Dashboard(st, c, th, "working_ips.txt").render(120, 40)
+        st2 = _state_with_hits(); st2.stopping = True; st2.finish()
+        frames += render_summary(th, st2, st2.ranked(), 100)
+        frames += Dashboard(st2, c, th).render(70, 30)
+        bad = {ch for ln in frames for ch in ANSI.sub("", ln) if not allowed(ch)}
+        assert not bad, f"wide/ambiguous glyphs: {[unicodedata.name(ch, hex(ord(ch))) for ch in bad]}"
+
+
+def test_slow_download_ranks_below_faster():
+    fast_hs = Hit("1.0.0.1", 5, 10); fast_hs.apply_rounds([5] * 3, [10] * 3, 3); fast_hs.speed = 1.5
+    ok = Hit("1.0.0.2", 30, 56); ok.apply_rounds([30] * 3, [56] * 3, 3); ok.speed = 9.0
+    untested = Hit("1.0.0.3", 20, 40); untested.apply_rounds([20] * 3, [40] * 3, 3)
+    failed = Hit("1.0.0.4", 10, 20); failed.apply_rounds([10] * 3, [20] * 3, 3); failed.speed_err = "timeout"
+    order = [h.ip for h in sorted([failed, untested, fast_hs, ok], key=rank_key)]
+    assert order == ["1.0.0.2", "1.0.0.1", "1.0.0.3", "1.0.0.4"]
