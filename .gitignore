@@ -1,7 +1,10 @@
 __pycache__/
 *.pyc
-.venv/
-venv/
+.pytest_cache/
+*.egg-info/
+build/
+dist/
 config.json
 working_ips.txt
 results.csv
+results.json

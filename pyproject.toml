@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cf-scanner-pro"
+dynamic = ["version"]
+description = "Find clean, fast Cloudflare edge IPs for your own SNI - zero dependencies."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.8"
+authors = [{ name = "SandBaad" }]
+keywords = ["cloudflare", "scanner", "ip", "sni", "cdn"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Environment :: Console",
+    "Operating System :: OS Independent",
+    "Topic :: System :: Networking",
+]
+
+[project.urls]
+Homepage = "https://github.com/SandBaad/CF-Scanner-Pro"
+
+[project.scripts]
+cfscan = "cfscan.cli:main"
+
+[tool.setuptools]
+packages = ["cfscan"]
+
+[tool.setuptools.dynamic]
+version = { attr = "cfscan.__version__" }
