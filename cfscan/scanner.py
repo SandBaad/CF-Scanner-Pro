@@ -159,10 +159,17 @@ class Scanner:
         loop = asyncio.get_running_loop()
         loop.set_exception_handler(lambda _loop, _ctx: None)  # aborted TLS noise
         self._task = asyncio.current_task()
+        old_handler = None
         try:
             loop.add_signal_handler(signal.SIGINT, self.request_stop)
         except (NotImplementedError, RuntimeError, ValueError, AttributeError):
-            pass  # Windows: Ctrl+C arrives as KeyboardInterrupt instead
+            # Windows: no loop signal handlers. A plain handler gives the same
+            # "first Ctrl+C stops and saves, second quits" behaviour.
+            try:
+                old_handler = signal.signal(
+                    signal.SIGINT, lambda *_: loop.call_soon_threadsafe(self.request_stop))
+            except (ValueError, OSError):
+                old_handler = None
 
         ui_task = asyncio.ensure_future(self._ui_loop(ui)) if ui is not None else None
         try:
@@ -170,6 +177,8 @@ class Scanner:
         except asyncio.CancelledError:
             self.state.stopping = True
         finally:
+            if old_handler is not None:
+                signal.signal(signal.SIGINT, old_handler)
             if ui_task is not None:
                 ui_task.cancel()
             self.state.finish()

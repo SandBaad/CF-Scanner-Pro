@@ -8,28 +8,55 @@ import sys
 IS_WIN = os.name == "nt"
 
 
+VT_OK = not IS_WIN  # escape sequences understood by the console?
+
+
 def enable_windows_ansi():
+    """Turns on VT processing in the Windows console (Windows 10+) and UTF-8 output.
+
+    Returns False on consoles that can't do it (old Windows); the CLI then falls back to
+    plain text without colors or the full-screen dashboard.
+    """
+    global VT_OK
     if not IS_WIN:
-        return
+        return True
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     try:
         import ctypes
         k32 = ctypes.windll.kernel32
+        k32.SetConsoleOutputCP(65001)
+        ok = True
         for handle_id in (-11, -12):  # stdout, stderr
             h = k32.GetStdHandle(handle_id)
             mode = ctypes.c_uint32()
-            if k32.GetConsoleMode(h, ctypes.byref(mode)):
-                k32.SetConsoleMode(h, mode.value | 0x0004)  # VIRTUAL_TERMINAL_PROCESSING
+            if k32.GetConsoleMode(h, ctypes.byref(mode)):  # False when redirected: nothing to do
+                if not k32.SetConsoleMode(h, mode.value | 0x0004):  # ENABLE_VIRTUAL_TERMINAL_PROCESSING
+                    ok = False
+        VT_OK = ok
     except Exception:
-        pass
-    for stream in (sys.stdout, sys.stderr):
-        try:
-            stream.reconfigure(encoding="utf-8")
-        except Exception:
-            pass
+        VT_OK = False
+    return VT_OK
+
+
+def launched_by_double_click():
+    """True when the Windows .exe got its own console window (double-clicked in Explorer)."""
+    if not IS_WIN or not getattr(sys, "frozen", False):
+        return False
+    try:
+        import ctypes
+        pids = (ctypes.c_uint32 * 8)()
+        # Our console holds only the PyInstaller bootloader and us; from cmd/PowerShell there's a shell too.
+        return ctypes.windll.kernel32.GetConsoleProcessList(pids, 8) <= 2
+    except Exception:
+        return False
 
 
 def wants_color(stream, forced_off=False):
-    if forced_off or os.environ.get("NO_COLOR"):
+    if forced_off or os.environ.get("NO_COLOR") or not VT_OK:
         return False
     if os.environ.get("FORCE_COLOR"):
         return True

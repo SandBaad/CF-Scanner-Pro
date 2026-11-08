@@ -49,7 +49,10 @@ HTTPS_PORTS = (443, 2053, 2083, 2087, 2096, 8443)
 def config_path():
     if os.environ.get("CFSCAN_CONFIG"):
         return os.environ["CFSCAN_CONFIG"]
-    base = os.environ.get("XDG_CONFIG_HOME") or os.path.join(os.path.expanduser("~"), ".config")
+    if os.name == "nt" and os.environ.get("APPDATA"):
+        base = os.environ["APPDATA"]
+    else:
+        base = os.environ.get("XDG_CONFIG_HOME") or os.path.join(os.path.expanduser("~"), ".config")
     return os.path.join(base, "cfscan", "config.json")
 
 

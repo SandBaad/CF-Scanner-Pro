@@ -1,0 +1,57 @@
+name: windows-exe
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build cfscan.exe
+        run: |
+          pip install pyinstaller
+          pyinstaller --onefile --console --clean --name cfscan main.py
+
+      - name: Smoke test the exe
+        shell: pwsh
+        run: |
+          function Check($code, $want, $what) { if ($code -ne $want) { Write-Error "$what exited $code (wanted $want)"; exit 1 } }
+          .\dist\cfscan.exe --version;  Check $LASTEXITCODE 0 "--version"
+          .\dist\cfscan.exe;            Check $LASTEXITCODE 0 "home screen"
+          .\dist\cfscan.exe ranges;     Check $LASTEXITCODE 0 "ranges"
+          .\dist\cfscan.exe scan "not a domain"; Check $LASTEXITCODE 2 "bad domain"
+          $json = .\dist\cfscan.exe test 127.0.0.2 --sni x.example.com -p 9 -t 1 --rounds 1 --json
+          Check $LASTEXITCODE 1 "test (no working IP)"
+          $data = $json | ConvertFrom-Json
+          if ($data.tested -ne 1) { Write-Error "unexpected JSON: $json"; exit 1 }
+          Write-Host "smoke test OK"
+
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory pkg | Out-Null
+          Copy-Item dist\cfscan.exe, README.md, LICENSE, subnets.txt pkg\
+          Compress-Archive -Path pkg\* -DestinationPath CF-Scanner-Pro-windows-x64.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CF-Scanner-Pro-windows-x64
+          path: CF-Scanner-Pro-windows-x64.zip
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/cfscan.exe
+            CF-Scanner-Pro-windows-x64.zip

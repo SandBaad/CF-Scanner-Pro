@@ -87,6 +87,18 @@ def make_context(verify=True, cafile=None):
     return ctx
 
 
+# Python <= 3.10's SSL transport can raise AttributeError (or a reset) when the peer
+# closes while the stream is paused. Treat every such case as a normal end of stream.
+_READ_ERRORS = (AttributeError, ConnectionError, ssl.SSLError)
+
+
+async def _read(reader, n, timeout):
+    try:
+        return await asyncio.wait_for(reader.read(n), timeout)
+    except _READ_ERRORS:
+        return b""
+
+
 def _left(deadline):
     remaining = deadline - time.perf_counter()
     if remaining <= 0:
@@ -94,7 +106,7 @@ def _left(deadline):
     return remaining
 
 
-async def open_tls(ip, port, sni, ctx, deadline):
+async def open_tls(ip, port, sni, ctx, deadline, limit=2 ** 16):
     """Connects and handshakes. Returns (reader, writer, tcp_ms, tls_ms) or raises ProbeFail."""
     loop = asyncio.get_running_loop()
     start = time.perf_counter()
@@ -115,7 +127,7 @@ async def open_tls(ip, port, sni, ctx, deadline):
     tcp_ms = (time.perf_counter() - start) * 1000
     try:
         reader, writer = await asyncio.wait_for(
-            asyncio.open_connection(sock=sock, ssl=ctx, server_hostname=sni),
+            asyncio.open_connection(sock=sock, ssl=ctx, server_hostname=sni, limit=limit),
             _left(deadline),
         )
     except ssl.SSLCertVerificationError:
@@ -181,7 +193,7 @@ class Prober:
             return Hit(ip, round(tcp_ms), round(tls_ms), colo, time.strftime("%H:%M:%S")), None
         except ProbeFail as e:
             return None, e.stage
-        except (OSError, ValueError, EOFError, asyncio.TimeoutError):
+        except (OSError, ValueError, EOFError, AttributeError, asyncio.TimeoutError):
             return None, "http"
         finally:
             if writer is not None:
@@ -192,7 +204,7 @@ class Prober:
         await asyncio.wait_for(writer.drain(), _left(deadline))
         buf = b""
         while len(buf) < 16384:
-            chunk = await asyncio.wait_for(reader.read(4096), _left(deadline))
+            chunk = await _read(reader, 4096, _left(deadline))
             if not chunk:
                 break
             buf += chunk
@@ -236,13 +248,13 @@ class SpeedTester:
         deadline = time.perf_counter() + self.timeout
         writer = None
         try:
-            reader, writer, _, _ = await open_tls(ip, self.port, self.host, self.ctx, deadline)
+            reader, writer, _, _ = await open_tls(ip, self.port, self.host, self.ctx, deadline, limit=2 ** 22)
             writer.write(self.request)
             await asyncio.wait_for(writer.drain(), _left(deadline))
 
             buf = b""
             while b"\r\n\r\n" not in buf:
-                chunk = await asyncio.wait_for(reader.read(65536), _left(deadline))
+                chunk = await _read(reader, 65536, _left(deadline))
                 if not chunk:
                     return None, "closed"
                 buf += chunk
@@ -268,7 +280,7 @@ class SpeedTester:
                 if remaining <= 0:
                     break
                 try:
-                    chunk = await asyncio.wait_for(reader.read(65536), remaining)
+                    chunk = await _read(reader, 65536, remaining)
                 except asyncio.TimeoutError:
                     break
                 if not chunk:
@@ -280,7 +292,7 @@ class SpeedTester:
             return got * 8 / elapsed / 1e6, ""
         except ProbeFail as e:
             return None, e.stage
-        except (OSError, ValueError, EOFError, asyncio.TimeoutError):
+        except (OSError, ValueError, EOFError, AttributeError, asyncio.TimeoutError):
             return None, "timeout"
         finally:
             if writer is not None:

@@ -8,11 +8,12 @@ import os
 import shutil
 import sys
 
-from cfscan import APP_NAME, __version__, config, ranges
+from cfscan import APP_NAME, __version__, config, ranges, term
 from cfscan.engine import Prober, SpeedTester
 from cfscan.output import ResultSink, build_report, hit_dict, load_report
 from cfscan.scanner import ScanState, Scanner, rank_key
-from cfscan.term import Keys, Screen, Theme, can_unicode, enable_windows_ansi, wants_color
+from cfscan.term import (Keys, Screen, Theme, can_unicode, enable_windows_ansi, launched_by_double_click,
+                         wants_color)
 from cfscan.tui import Dashboard, Line, LiveUI, PlainUI, box, render_summary
 
 EXAMPLES = """\
@@ -123,7 +124,7 @@ def ask_sni():
 def execute(args, cfg, blocks=(), targets=None, source=""):
     out_stream = sys.stdout
     want_json = getattr(args, "json", False)
-    tui = out_stream.isatty() and sys.stdin.isatty() and not args.plain and not want_json
+    tui = term.VT_OK and out_stream.isatty() and sys.stdin.isatty() and not args.plain and not want_json
     th = theme_for(out_stream, args)
 
     wanted = cfg["concurrency"]
@@ -367,6 +368,48 @@ def build_parser():
     return p
 
 
+def wizard():
+    """Guided start for people who double-click cfscan.exe instead of using a terminal."""
+    th = theme_for(sys.stdout, argparse.Namespace())
+    saved = config.load_saved()
+    width = min(shutil.get_terminal_size((90, 24)).columns - 1, 76)
+    intro = [Line(("Find clean, fast Cloudflare IPs for your own domain (SNI).", "text")),
+             Line(("Tip: from a terminal you can run ", "dim"), ("cfscan scan -h", "accent"), (" for all options.", "dim"))]
+    for line in box(th, f"{APP_NAME} v{__version__}", intro, width):
+        print(line)
+    print()
+
+    def ask(prompt, default=""):
+        hint = f" [{default}]" if default else ""
+        answer = input(th.paint("? ", "accent") + th.paint(prompt, "bold") + th.paint(hint, "dim") + " ").strip()
+        return answer or default
+
+    while True:
+        sni = ask("Your domain (SNI) behind Cloudflare:", saved.get("sni", "")).lower()
+        if config.valid_domain(sni):
+            break
+        print(th.paint("  Enter a domain like sub.example.com", "warn"))
+    modes = list(config.MODES)[:3]  # full is for terminals
+    for i, m in enumerate(modes, 1):
+        print(th.paint(f"  {i}) ", "accent") + f"{m:<6}" + th.paint(f" {config.MODE_HELP[m]}", "dim"))
+    default_mode = saved.get("mode") if saved.get("mode") in modes else "smart"
+    while True:
+        pick = ask("Scan mode (1-3):", str(modes.index(default_mode) + 1))
+        if pick in ("1", "2", "3") or pick in modes:
+            mode = modes[int(pick) - 1] if pick.isdigit() else pick
+            break
+    config.save({**config.DEFAULTS, **saved, "sni": sni, "mode": mode})  # next time: just press Enter
+    args = build_parser().parse_args(["scan", sni, "-m", mode])
+    return args.func(args)
+
+
+def pause():
+    try:
+        input("\nPress Enter to close...")
+    except (EOFError, KeyboardInterrupt):
+        pass
+
+
 def legacy_argv(argv):
     """v2 used flags only (`main.py --sni x`). Keep those working."""
     if not argv or not argv[0].startswith("-") or argv[0] in ("-h", "--help", "-V", "--version", "--no-color"):
@@ -378,9 +421,20 @@ def legacy_argv(argv):
 
 def main(argv=None):
     enable_windows_ansi()
-    argv = legacy_argv(list(sys.argv[1:] if argv is None else argv))
+    raw = list(sys.argv[1:] if argv is None else argv)
+    if not raw and launched_by_double_click():
+        code = 0
+        try:
+            code = wizard()
+        except SystemExit as e:  # die() inside a command
+            code = e.code if isinstance(e.code, int) else 1
+        except KeyboardInterrupt:
+            code = 130
+        pause()
+        sys.exit(code)
+
     parser = build_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(legacy_argv(raw))
     if not hasattr(args, "func"):
         sys.exit(cmd_home(args))
     try:
@@ -389,4 +443,3 @@ def main(argv=None):
         sys.exit(0)
     except KeyboardInterrupt:
         sys.exit(130)
-

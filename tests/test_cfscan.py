@@ -267,8 +267,8 @@ def test_summary_and_table():
 def cli(*args, cwd=None):
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     env = dict(os.environ, CFSCAN_CONFIG=os.path.join(cwd or root, "cfg.json"), NO_COLOR="1")
-    return subprocess.run([sys.executable, os.path.join(root, "main.py"), *args],
-                          capture_output=True, text=True, cwd=cwd, env=env, timeout=60)
+    return subprocess.run([sys.executable, os.path.join(root, "main.py"), *args], capture_output=True,
+                          text=True, encoding="utf-8", errors="replace", cwd=cwd, env=env, timeout=60)
 
 
 def test_cli_basics(tmp_path):
@@ -326,3 +326,14 @@ def test_slow_download_ranks_below_faster():
     failed = Hit("1.0.0.4", 10, 20); failed.apply_rounds([10] * 3, [20] * 3, 3); failed.speed_err = "timeout"
     order = [h.ip for h in sorted([failed, untested, fast_hs, ok], key=rank_key)]
     assert order == ["1.0.0.2", "1.0.0.1", "1.0.0.3", "1.0.0.4"]
+
+
+def test_read_survives_old_sslproto_bug():
+    """Python <= 3.10 raises AttributeError from reader.read() when the peer closes mid-stream."""
+    from cfscan.engine import _read
+
+    class Broken:
+        async def read(self, n):
+            raise AttributeError("'NoneType' object has no attribute 'resume_reading'")
+
+    assert run(_read(Broken(), 10, 1)) == b""
