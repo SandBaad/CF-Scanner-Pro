@@ -4,6 +4,11 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      release:
+        description: "Publish a GitHub release with this tag (e.g. v3.1.0). Empty = build only."
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -50,9 +55,20 @@ jobs:
           path: CF-Scanner-Pro-windows-x64.zip
 
       - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || inputs.release != ''
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.release || github.ref_name }}
+          name: CF-Scanner Pro ${{ inputs.release || github.ref_name }}
+          target_commitish: ${{ github.sha }}
+          body: |
+            **Windows:** download `cfscan.exe` below and double-click it - no Python needed.
+            If Windows says "Windows protected your PC", click **More info -> Run anyway** (the file isn't code-signed; it is built by GitHub Actions from this repository).
+
+            **ویندوز:** فایل `cfscan.exe` را دانلود کنید و روی آن دوبار کلیک کنید؛ نیازی به پایتون نیست.
+            اگر ویندوز پیام «Windows protected your PC» داد، روی **More info** و بعد **Run anyway** بزنید.
+
+            **Linux / macOS / Termux:** `git clone https://github.com/SandBaad/CF-Scanner-Pro.git && cd CF-Scanner-Pro && python3 main.py scan your.domain`
           files: |
             dist/cfscan.exe
             CF-Scanner-Pro-windows-x64.zip
