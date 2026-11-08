@@ -35,6 +35,7 @@ jobs:
           $data = $json | ConvertFrom-Json
           if ($data.tested -ne 1) { Write-Error "unexpected JSON: $json"; exit 1 }
           Write-Host "smoke test OK"
+          exit 0
 
       - name: Package
         shell: pwsh

@@ -7,6 +7,8 @@
 ![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?style=flat-square&logo=python&logoColor=white)
 ![Dependencies](https://img.shields.io/badge/dependencies-none-2ea44f?style=flat-square)
 ![Platforms](https://img.shields.io/badge/Linux%20·%20macOS%20·%20Windows%20·%20Termux-informational?style=flat-square)
+[![tests](https://github.com/SandBaad/CF-Scanner-Pro/actions/workflows/tests.yml/badge.svg)](https://github.com/SandBaad/CF-Scanner-Pro/actions/workflows/tests.yml)
+[![Download for Windows](https://img.shields.io/badge/Download-cfscan.exe-0078D4?style=flat-square&logo=windows&logoColor=white)](https://github.com/SandBaad/CF-Scanner-Pro/releases/latest)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 [English](#english) • [فارسی](#persian)
@@ -29,13 +31,22 @@
 - **Command-based** with a live full-screen dashboard (auto-adapts to phone screens), plus `--plain` and `--json` for scripts.
 - **Safe output.** IPs are written while scanning; `q` or `Ctrl+C` stops cleanly and saves.
 
-### Install
+### Windows (no Python needed)
+1. Download **`cfscan.exe`** from the [latest release](https://github.com/SandBaad/CF-Scanner-Pro/releases/latest).
+2. **Double-click it**, type your domain, pick a mode, done. Your domain is remembered for next time.
+3. Results (`working_ips.txt`, `results.csv`) are saved next to `cfscan.exe`.
+
+From a terminal (Windows Terminal, PowerShell or cmd) every command below works too: `.\cfscan.exe scan sub.example.com`.
+
+> Windows may show **"Windows protected your PC"** because the file isn't code-signed: click **More info → Run anyway**. The exe is built by GitHub Actions straight from this repository ([workflow](.github/workflows/windows.yml)).
+
+### Install (Linux, macOS, Termux, or Windows with Python)
 ```bash
 git clone https://github.com/SandBaad/CF-Scanner-Pro.git
 cd CF-Scanner-Pro
 python3 main.py scan sub.example.com
 ```
-Termux: `pkg install python git` first. Optional: `pip install .` gives you a `cfscan` command (same as `python3 main.py`).
+Termux: `pkg install python git` first. Windows with Python: use `py main.py` instead of `python3 main.py`. Optional: `pip install .` gives you a `cfscan` command (same as `python3 main.py`).
 
 ### Commands
 | Command | What it does |
@@ -96,7 +107,16 @@ Run `cfscan scan -h` for everything.
 - **دستوری (Command-based)** با داشبورد زنده تمام‌صفحه که خودش را با صفحه گوشی هم تطبیق می‌دهد؛ برای اسکریپت هم `--plain` و `--json` دارد.
 - **ذخیره امن:** نتایج حین اسکن ذخیره می‌شوند و با `q` یا `Ctrl+C` اسکن تمیز متوقف و ذخیره می‌شود.
 
-### نصب و اجرا
+### ویندوز (بدون نیاز به پایتون)
+1. فایل **`cfscan.exe`** را از [آخرین نسخه (Releases)](https://github.com/SandBaad/CF-Scanner-Pro/releases/latest) دانلود کنید.
+2. **روی آن دوبار کلیک کنید**، دامنه‌تان را بنویسید و حالت اسکن را انتخاب کنید. دامنه برای دفعه بعد ذخیره می‌شود.
+3. نتایج (`working_ips.txt` و `results.csv`) کنار همان `cfscan.exe` ذخیره می‌شوند.
+
+همه دستورهای پایین در ترمینال ویندوز (Windows Terminal، PowerShell یا cmd) هم کار می‌کنند: `.\cfscan.exe scan sub.example.com`
+
+> چون فایل امضای دیجیتال ندارد، ممکن است ویندوز پیام **«Windows protected your PC»** نشان دهد. روی **More info** و بعد **Run anyway** بزنید. این فایل را خود GitHub Actions مستقیم از کد همین ریپو می‌سازد.
+
+### نصب و اجرا (لینوکس، مک، Termux یا ویندوزِ دارای پایتون)
 
 <div dir="ltr" align="left">
 
@@ -108,7 +128,7 @@ python3 main.py scan sub.example.com
 
 </div>
 
-در Termux اول `pkg install python git` را بزنید. اگر بخواهید دستور کوتاه `cfscan` داشته باشید: `pip install .`
+در Termux اول `pkg install python git` را بزنید. در ویندوزِ دارای پایتون به جای `python3 main.py` بنویسید `py main.py`. اگر بخواهید دستور کوتاه `cfscan` داشته باشید: `pip install .`
 
 ### دستورها
 
